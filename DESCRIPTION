@@ -21,9 +21,8 @@ Depends:
     restorepoint,
     dplyr,
     stringtools,
-    YamlObjects,
     rmdtools,
     shiny,
     shinyAce,
-    shinyjs,
-    shinyEvents
+    shinyEvents,
+    webforms

@@ -1,20 +1,18 @@
 example.peerquiz = function() {
   setwd("D:/libraries/peerquiz")
-  file = "qu.yaml"
+  file = "budget.yaml"
   app = eventsApp()
   pq = import.yaml(file=file)
   pq = init.peerquiz(pq=pq)
-  ui = peerquiz.input.ui(pq)
 
   sols = c(list(pq$solution), pq$wrongsols)
   sols = lapply(sols,sol.source.to.secure.html)
   ui = peerquiz.guess.sol.ui(sols, pq=pq)
 
-  h = app$handlers[[2]]
-  h
-  as.list(h$call.env)
+  ui = peerquiz.input.ui(pq)
+
+
   app$ui = fluidPage(
-    useShinyjs(),  # Set up shinyjs
     # Add a CSS class for red text colour
     inlineCSS(list(
       .bgempty = "background: white",
@@ -22,7 +20,7 @@ example.peerquiz = function() {
       .bg2 = "background:  #D0D0D0",
       .bg3 = "background: ##CD7F32"
     )),
-    ui
+    withMathJax(ui)
   )
   viewApp()
 
@@ -30,6 +28,7 @@ example.peerquiz = function() {
 }
 
 init.peerquiz = function(yaml=NULL,pq=NULL, id = NULL) {
+  restore.point("init.peerquiz")
   if (is.null(pq)) {
     pq = yaml.load(yaml)
   }
@@ -48,32 +47,21 @@ init.peerquiz = function(yaml=NULL,pq=NULL, id = NULL) {
     pq$ace_lines = max(nsol+2, nsol*1.3)
   }
 
-  pq
-}
+  pq = init.pq.form(pq)
+  if (!is.null(pq$funs)) {
+    txt = sep.lines(pq$funs)
 
-peerquiz.input.ui = function(pq) {
-  restore.point("peerquiz.input.ui")
-
-  ui = tagList(
-    p(HTML(pq$question_html)),
-    tabsetPanel(type="pills",id = pq$acetabset_id,
-      tabPanel(title = "Edit", value = "edit",
-        aceEditor(outputId = pq$ace_id,value = pq$template,mode = "text",showLineNumbers = FALSE,wordWrap = TRUE,height = 12*pq$ace_lines+20)
-      ),
-      tabPanel(title = "Preview", value = "preview",
-        uiOutput(pq$preview_id)
-      )
-    ),
-    actionButton(pq$ace_btn_id,"Ok")
-  )
-  changeHandler(pq$acetabset_id,pq=pq, function(value, app,pq, ...) {
-    if (value=="preview") {
-      sol = getInputValue(pq$ace_id)
-      html= sol.source.to.secure.html(sol)
-      setUI(pq$preview_id, wellPanel(HTML(html)))
+    code = unlist(find.rmd.chunks(txt, add.code=TRUE)$code)
+    if (length(code)>0) {
+      call = parse(text=code)
+      env = new.env()
+      eval(call, env)
+      pq = c(pq,as.list(env))
     }
-  })
-  ui
+  }
+
+
+  pq
 }
 
 sol.source.to.secure.html = function(sol) {
@@ -99,7 +87,7 @@ peerquiz.guess.sol.ui = function(sols=cur$sols,pq, cur=pq$cur, num.cols=2) {
   str = paste0('<tr><td valign="top" style="border: 0px solid #000000">',left,'</td><td valign="top" style="border: 0px solid #000000">',right,"</td></tr>")
   tab = paste0('<table  style="width: 100%; border-collapse:collapse;"><col width="50%"><col width="50%">', paste0(str, collapse="\n"),"</table>")
 
-  ui = HTML(tab)
+  ui = withMathJax(HTML(tab))
   ui
 }
 
@@ -112,7 +100,7 @@ quiz.sol.div = function(sol.num=1, pq, cur=pq$cur) {
   ui = div(id = id,style="margin:5px; border: 1px solid #000000; padding:10px;",
     p(HTML(sol))
   )
-  jsclickHandler(id, click.quiz.sol, sol.num=sol.num, pq=pq)
+  #jsclickHandler(id, click.quiz.sol, sol.num=sol.num, pq=pq)
   #jsclickHandler(id, my.fun, sol.num=sol.num, pq=pq)
   as.character(ui)
 }
