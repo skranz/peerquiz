@@ -1,3 +1,36 @@
+get.pq.dir = function(...) {
+  pq.opts()$pq.dir
+}
+
+get.pq.userid = function(pq) {
+  pq$userid
+}
+
+pq.opts = function(app=getApp()) {
+  restore.point("pq.opts")
+  if (!is.null(app[["pq.opts"]]))
+    return(app$pq.opts)
+
+  pq.opts = getOption("peerquiz.options")
+  if (is.null(pq.opts)) {
+    pq.opts = init.pq.opts()
+    set.pq.opts(pq.opts)
+  }
+  pq.opts
+}
+
+set.pq.opts = function(pq.opts = init.pq.opts(), app=getApp()) {
+  if (!is.null(app)) {
+    app$pq.opts = pq.opts
+  }
+  options(pq.opts=pq.opts)
+  invisible(pq.opts)
+}
+
+init.pq.opts = function(pq.dir = file.path(getwd(),"pqa")) {
+  nlist(pq.dir)
+}
+
 example.peerquiz = function() {
   setwd("D:/libraries/peerquiz")
   file = "budget.yaml"
@@ -27,24 +60,34 @@ example.peerquiz = function() {
   #view.html(ui=ui)
 }
 
-init.peerquiz = function(yaml=NULL,pq=NULL, id = NULL) {
+load.pq = function(yaml.file=NULL, pq.file = NULL, yaml=NULL,...) {
+  restore.point("load.pq")
+  if (!is.null(pq.file)) {
+    return(readRDS(pq.file))
+  }
+
+  pq = import.yaml(file=yaml.file, text=yaml)
+
+  init.peerquiz(pq=pq)
+}
+
+init.peerquiz = function(yaml=NULL,pq=NULL, id = NULL, userid="JonDoe", pq.dir = get.pq.dir()) {
   restore.point("init.peerquiz")
   if (is.null(pq)) {
+    yaml = merge.lines(yaml)
     pq = yaml.load(yaml)
   }
   pq$question_html = md2html(pq$question)
-  pq$id = paste0("pq_",pq$name)
-  pq$ace_id = paste0("ace_",pq$id)
-  pq$preview_id = paste0("preview_",pq$id)
-  pq$acetabset_id = paste0("acetabset_",pq$id)
-  pq$ace_btn_id = paste0("ace_",pq$id)
+  pq$id = paste0(pq$name)
+  pq$userid = userid
+  pq$ns = NS(paste0("pq_",pq$id))
   pq$sol_div_id = paste0("sol_div_",1:8,"_",pq$id)
   pq$num.sol.click = 2
+  pq$lang = first.non.null(pq$lang, "en")
+  pq$str = pq_strings(pq$lang)
 
-  pq$cur = new.env()
   if (is.null(pq$ace_lines)) {
-    nsol = NROW(sep.lines(pq$solution))
-    pq$ace_lines = max(nsol+2, nsol*1.3)
+    pq$ace_lines = 10
   }
 
   pq = init.pq.form(pq)
@@ -63,82 +106,3 @@ init.peerquiz = function(yaml=NULL,pq=NULL, id = NULL) {
 
   pq
 }
-
-sol.source.to.secure.html = function(sol) {
-  restore.point("sol.source.to.secure.html")
-  # Properly escape to prevent
-  # an XSS attack
-  html = htmltools::htmlEscape(sol)
-  # Still we want to preserve line breaks
-  html = gsub("\n","<br>\n", html, fixed=TRUE)
-  html
-}
-
-peerquiz.guess.sol.ui = function(sols=cur$sols,pq, cur=pq$cur, num.cols=2) {
-  restore.point("peerquiz.input.ui")
-  cur$sols = sols
-
-  divs = lapply(seq_along(sols), quiz.sol.div, pq=pq)
-  is.left = seq_along(divs)%%2 == 1
-  left = divs[is.left]
-  right = divs[!is.left]
-  if (length(right)<length(left)) right[[length(left)]] = ""
-
-  str = paste0('<tr><td valign="top" style="border: 0px solid #000000">',left,'</td><td valign="top" style="border: 0px solid #000000">',right,"</td></tr>")
-  tab = paste0('<table  style="width: 100%; border-collapse:collapse;"><col width="50%"><col width="50%">', paste0(str, collapse="\n"),"</table>")
-
-  ui = withMathJax(HTML(tab))
-  ui
-}
-
-quiz.sol.div = function(sol.num=1, pq, cur=pq$cur) {
-  restore.point("quiz.sol.div")
-
-  sol = cur$sols[[sol.num]]
-  id = pq$sol_div_id[[sol.num]]
-
-  ui = div(id = id,style="margin:5px; border: 1px solid #000000; padding:10px;",
-    p(HTML(sol))
-  )
-  #jsclickHandler(id, click.quiz.sol, sol.num=sol.num, pq=pq)
-  #jsclickHandler(id, my.fun, sol.num=sol.num, pq=pq)
-  as.character(ui)
-}
-
-my.fun = function(...) {
-  myargs = list(...)
-  restore.point("my.fun")
-}
-
-click.quiz.sol = function(id,sol.num=NULL,pq=NULL,...) {
-  restore.point("click.quiz.sol")
-  cur = pq$cur
-
-
-  if (sol.num %in% cur$sol.clicked) {
-    for (i in seq_along(cur$sol.clicked)) {
-      rsol.num = cur$sol.clicked[[i]]
-      rid = pq$sol_div_id[[rsol.num]]
-      shinyjs::removeClass(id = rid, paste0("bg",i))
-    }
-    cur$sol.clicked = NULL
-    return()
-  }
-
-
-  if (length(cur$sol.clicked) >= pq$num.sol.click) {
-    for (i in seq_along(cur$sol.clicked)) {
-      rsol.num = cur$sol.clicked[[i]]
-      rid = pq$sol_div_id[[rsol.num]]
-      shinyjs::removeClass(id = rid, paste0("bg",i))
-    }
-    cur$sol.clicked = sol.num
-  } else {
-    cur$sol.clicked = c(cur$sol.clicked,sol.num)
-  }
-  rank = length(cur$sol.clicked)
-  shinyjs::addClass(id = id, paste0("bg",rank))
-
-  cat("I was clicked!")
-}
-

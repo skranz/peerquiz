@@ -25,4 +25,5 @@ Depends:
     shiny,
     shinyAce,
     shinyEvents,
+    shinyEventsUI,
     webforms
