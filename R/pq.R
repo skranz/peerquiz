@@ -1,9 +1,13 @@
-get.pq.dir = function(...) {
-  pq.opts()$pq.dir
+get.pqs.dir = function(...) {
+  pq.opts()$pqs.dir
 }
 
-get.pq.userid = function(pq) {
-  pq$userid
+get.pq.dir = function(pq, id=pq$id, pqs.dir = get.pqs.dir()) {
+  file.path(pqs.dir, id)
+}
+
+get.pq.userid = function(app=getApp()) {
+  app$userid
 }
 
 pq.opts = function(app=getApp()) {
@@ -27,16 +31,16 @@ set.pq.opts = function(pq.opts = init.pq.opts(), app=getApp()) {
   invisible(pq.opts)
 }
 
-init.pq.opts = function(pq.dir = file.path(getwd(),"pqa")) {
-  nlist(pq.dir)
+init.pq.opts = function(pqs.dir = file.path(getwd(),"pq")) {
+  nlist(pqs.dir)
 }
 
 example.peerquiz = function() {
   setwd("D:/libraries/peerquiz")
   file = "budget.yaml"
   app = eventsApp()
-  pq = import.yaml(file=file)
-  pq = init.peerquiz(pq=pq)
+  pq = import.yaml()
+  pq = create.pq(yaml.file=file)
 
   sols = c(list(pq$solution), pq$wrongsols)
   sols = lapply(sols,sol.source.to.secure.html)
@@ -60,30 +64,26 @@ example.peerquiz = function() {
   #view.html(ui=ui)
 }
 
-load.pq = function(yaml.file=NULL, pq.file = NULL, yaml=NULL,...) {
+load.pq = function(id, pq.file = file.path(dir,paste0(id,".pq")),  dir = get.pq.dir(id=id)) {
   restore.point("load.pq")
-  if (!is.null(pq.file)) {
-    return(readRDS(pq.file))
-  }
-
-  pq = import.yaml(file=yaml.file, text=yaml)
-
-  init.peerquiz(pq=pq)
+  return(readRDS(pq.file))
 }
 
-init.peerquiz = function(yaml=NULL,pq=NULL, id = NULL, userid="JonDoe", pq.dir = get.pq.dir()) {
-  restore.point("init.peerquiz")
+create.pq = function(yaml=NULL,pq=NULL, id = NULL, yaml.file = NULL, pqs.dir = get.pqs.dir(), save=TRUE) {
+  restore.point("create.pq")
+
+  if (!is.null(yaml.file)) {
+    yaml = readLines(yaml,encoding = "UTF-8")
+  }
   if (is.null(pq)) {
-    yaml = merge.lines(yaml)
-    pq = yaml.load(yaml)
+    pq = read.yaml(file=yaml.file, text=yaml)
   }
   pq$question_html = md2html(pq$question)
   pq$id = paste0(pq$name)
-  pq$userid = userid
   pq$ns = NS(paste0("pq_",pq$id))
   pq$sol_div_id = paste0("sol_div_",1:8,"_",pq$id)
   pq$num.sol.click = 2
-  pq$lang = first.non.null(pq$lang, "en")
+  pq$lang = first.none.null(pq$lang, "en")
   pq$str = pq_strings(pq$lang)
 
   if (is.null(pq$ace_lines)) {
@@ -103,6 +103,19 @@ init.peerquiz = function(yaml=NULL,pq=NULL, id = NULL, userid="JonDoe", pq.dir =
     }
   }
 
+  # save pq file
+  if (save) {
+    pq.dir = get.pq.dir(pq)
+    if (!dir.exists(pq.dir)) {
+      dir.create(pq.dir, recursive=TRUE)
+      dir.create(file.path(pq.dir,"users"))
+    }
+    saveRDS(pq, file.path(pq.dir, paste0(pq$id,".pq")))
+
+    if (!is.null(yaml)) {
+      writeLines(yaml,file.path(pq.dir, paste0(pq$id,".yaml")),useBytes = TRUE)
+    }
+  }
 
   pq
 }

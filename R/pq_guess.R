@@ -1,31 +1,52 @@
 example.peerquiz = function() {
   setwd("D:/libraries/peerquiz")
-  file = "budget.yaml"
+  file = "p-value.yaml"
   pq = load.pq(file)
   adf = load.pq.answers(pq=pq)
 
+  ans = adf
+  pgu = set.pgu(new.pgu(pq=pq, ans=ans))
 
   app = eventsApp()
-
-  ui = ans$answer.ui[[1]]
-  ans = adf
-  pgu = new.pgu(pq=pq, ans=ans)
-  set.pgu(pgu)
-
-  ui = peerquiz.guess.sol.ui(ans, pq=pq)
-
-  www.path = system.file("www",package="peerquiz")
-
-  ns = pq$ns
   app$ui = fluidPage(
-    singleton(tags$head(includeScript(file.path(www.path,"clickrank.js")))),
-    singleton(tags$head(includeCSS(file.path(www.path,"clickrank.css")))),
-    withMathJax(ui),
-    uiOutput(ns("ranking"))
+    pq.guess.headers(),
+    uiOutput("mainUI")
   )
+  app$userid = paste0("Guest_", sample.int(1e6,1))
   appInitHandler(function(...) {
-    callJS("newClickRank",id=pq$id,div_ids=pgu$ans.div.id,max_ranked=3)
+    set.pgu.ui("mainUI",pq=pq, pgu=pgu)
   })
+  viewApp()
+
+  #view.html(ui=ui)
+}
+
+new.pgu = function(pq,ans=NULL,num.ans = NROW(ans),...) {
+  pgu = as.environment(list(id=pq$id, ans=ans, num.ans=num.ans, ans.div.id = paste0("ans-div-id-",seq_len(NROW(ans)),"-",pq$id)))
+}
+
+set.pgu = function(pgu, app=getApp()) {
+  if (is.null(app[["pgu.li"]]))
+    app$pgu.li = list()
+
+  app$pgu.li[[pgu$id]] = pgu
+  pgu
+}
+
+get.pgu = function(pq=NULL,id = pq$id, app=getApp()){
+  if (is.null(app[["pgu.li"]]))
+    app$pgu.li = list()
+  if (is.null(app$pgu.li[[id]]))
+    app$pgu.li[[id]] = new.pgu(pq=pq)
+  app$pgu.li[[id]]
+}
+
+set.pgu.ui = function(container.id,pq, pgu = NULL) {
+  restore.point("set.pgu.ui")
+
+  ans = pgu$ans
+  ui = pgu.ui(pq=pq,pgu = pgu)
+
   eventHandler("clickRankChange",id=pq$id,function(ranked,max_ranked, num_ranked, ...) {
     restore.point("cr.clickRankChange")
     ns = pq$ns
@@ -48,32 +69,25 @@ example.peerquiz = function() {
     )
     setUI(ns("ranking"), ranking.ui)
   })
-  viewApp()
+  callJS("newClickRank",id=pq$id,div_ids=pgu$ans.div.id,max_ranked=3)
 
-  #view.html(ui=ui)
+  setUI(container.id,ui)
+  dsetUI(container.id,ui)
+  pgu
 }
 
-new.pgu = function(pq,ans=NULL,num.ans = NROW(ans),...) {
-  pgu = as.environment(list(id=pq$id, ans=ans, num.ans=num.ans, ans.div.id = paste0("ans-div-id-",seq_len(NROW(ans)),"-",pq$id)))
+pq.guess.headers = function() {
+  www.path = system.file("www",package="peerquiz")
+  tagList(
+    singleton(tags$head(includeScript(file.path(www.path,"clickrank.js")))),
+    singleton(tags$head(includeCSS(file.path(www.path,"clickrank.css"))))
+  )
+
 }
 
-set.pgu = function(pgu, app=getApp()) {
-  if (is.null(app[["pgu.li"]]))
-    app$pgu.li = list()
-
-  app$pgu.li[[pgu$id]] = pgu
-}
-
-get.pgu = function(pq=NULL,id = pq$id, app=getApp()){
-  if (is.null(app[["pgu.li"]]))
-    app$pgu.li = list()
-  if (is.null(app$pgu.li[[id]]))
-    app$pgu.li[[id]] = new.pgu(pq=pq)
-  app$pgu.li[[id]]
-}
-
-peerquiz.guess.sol.ui = function(ans=pgu$ans,pq, pgu=get.pgu(pq), num.cols=2) {
-  restore.point("peerquiz.guess.sol.ui")
+pgu.ui = function(ans=pgu$ans,pq, pgu=get.pgu(pq), num.cols=2, add.header = TRUE) {
+  restore.point("pgu.ui")
+  ns = pq$ns
   pgu$ans = ans
 
   divs = lapply(seq_len(NROW(ans)), quiz.ans.div, pq=pq,pgu=pgu)
@@ -85,10 +99,15 @@ peerquiz.guess.sol.ui = function(ans=pgu$ans,pq, pgu=get.pgu(pq), num.cols=2) {
   str = paste0('<tr><td valign="top" style="border: 0px solid #000000">',left,'</td><td valign="top" style="border: 0px solid #000000">',right,"</td></tr>")
   tab = paste0('<table  style="width: 100%; border-collapse:collapse;"><col width="50%"><col width="50%">', paste0(str, collapse="\n"),"</table>")
 
+
   ui = withMathJax(tagList(
+    if (add.header) pq.guess.headers(),
+    h4(pq$str$task),
     HTML(pq$question_html),
     h4(pq$str$proposed_answers),
-    HTML(tab)
+    HTML(tab),
+    uiOutput(ns("ranking")),
+    actionButton(ns("submitGuessBtn"),pq$str$submitBtn)
   ))
   ui
 }

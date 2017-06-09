@@ -26,4 +26,6 @@ Depends:
     shinyAce,
     shinyEvents,
     shinyEventsUI,
-    webforms
+    webforms,
+    rmdtools,
+    digest

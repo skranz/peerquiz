@@ -1,9 +1,9 @@
 example.peerquiz = function() {
   setwd("D:/libraries/peerquiz")
-  file = "budget.yaml"
+  file = "p-value.yaml"
   app = eventsApp()
-  pq = import.yaml(file=file)
-  pq = init.peerquiz(pq=pq, userid=paste0("Guest_", sample.int(100000,1)))
+  pq = create.pq(yaml.file=file)
+  userid = paste0("Guest_", sample.int(100000,1))
   save.pq.sample.sol(pq=pq)
   ui = peerquiz.input.ui(pq)
 
@@ -159,16 +159,16 @@ save.pq.sample.sol = function(pq, userid = "SOLUTION",  is.sol=TRUE, file="sampl
 
 }
 
-save.pq.answer = function(pq, userid = get.pq.userid(pq), values, answer, answer.ui, pq.dir=get.pq.dir(pq), is.sol=FALSE, file=paste0(digest(userid),".pqa")) {
+save.pq.answer = function(pq, userid=get.pq.userid(), values, answer, answer.ui, pq.dir=get.pq.dir(pq), is.sol=FALSE, file=paste0(digest(userid),".pqa")) {
   restore.point("save.pq.answer")
 
   pqa = list(id=pq$id, userid=userid, values=list(values), answer=answer, answer.ui=list(answer.ui), is.sol=is.sol, time=Sys.time())
 
-  pqa.dir = file.path(pq.dir, pqa$id,"users")
-  if (!dir.exists(pqa.dir))
-    dir.create(pqa.dir, recursive = TRUE)
+  users.dir = file.path(pq.dir,"users")
+  if (!dir.exists(users.dir))
+    dir.create(users.dir, recursive = TRUE)
 
-  saveRDS(pqa, file.path(pqa.dir, file))
+  saveRDS(pqa, file.path(users.dir, file))
 }
 
 
