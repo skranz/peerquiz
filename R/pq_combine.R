@@ -4,6 +4,7 @@ examples.pq.combine.answers = function() {
 }
 
 load.pq.answers = function(id = pq$id, pq.dir = get.pq.dir(id=id), pq=NULL) {
+  restore.point("load.pq.answers")
   file = file.path(pq.dir,"answers.rds")
   if (file.exists(file)) {
     df = readRDS(file)
@@ -15,11 +16,12 @@ load.pq.answers = function(id = pq$id, pq.dir = get.pq.dir(id=id), pq=NULL) {
 pq.combine.answers = function(id = pq$id, pq.dir = get.pq.dir(id=id), save=!TRUE) {
   restore.point("pq.combine.answers")
 
-  dir = file.path(pq.dir,"users")
+  dir = file.path(pq.dir,"answers")
   files = list.files(dir, pattern = glob2rx("*.pqa"),full.names = TRUE)
   if (length(files)==0) return(NULL)
 
   li = lapply(files, function(file) {
+    restore.point("innner")
     pqa = readRDS(file)
     do.call(data_frame,pqa)
   })

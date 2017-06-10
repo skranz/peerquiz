@@ -28,4 +28,5 @@ Depends:
     shinyEventsUI,
     webforms,
     rmdtools,
-    digest
+    digest,
+    RSQLite

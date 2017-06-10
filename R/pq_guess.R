@@ -1,11 +1,13 @@
 example.peerquiz = function() {
   setwd("D:/libraries/peerquiz")
-  file = "p-value.yaml"
-  pq = load.pq(file)
-  adf = load.pq.answers(pq=pq)
+  pq = load.pq("p-value")
+  #pq = load.pq("p-value")
 
-  ans = adf
-  pgu = set.pgu(new.pgu(pq=pq, ans=ans))
+  responderid = "guest"
+  adf = get.answers.df(pq=pq)
+
+  ans = select.guess.choices(adf, responderid = responderid)
+  pgu = set.pgu(new.pgu(pq=pq, ans=ans,responderid = responderid))
 
   app = eventsApp()
   app$ui = fluidPage(
@@ -21,8 +23,46 @@ example.peerquiz = function() {
   #view.html(ui=ui)
 }
 
-new.pgu = function(pq,ans=NULL,num.ans = NROW(ans),...) {
-  pgu = as.environment(list(id=pq$id, ans=ans, num.ans=num.ans, ans.div.id = paste0("ans-div-id-",seq_len(NROW(ans)),"-",pq$id)))
+
+get.answers.df = function(pq) {
+  restore.point("get.answers.df")
+  adf = load.pq.answers(pq=pq)
+  db = get.pqdb()
+  gdf = dbGet(db,"pqguess",nlist(id=pq$id))
+  if (NROW(gdf)>0) {
+    sgdf = gdf %>%
+      mutate(userid=writerid) %>%
+      group_by(userid)
+      summarize(num_guess = n())
+
+    adf = left_join(adf, sgdf, by="userid") %>%
+      mutate(num_guess = ifelse(is.na(num_guess),0,num_guess))
+  } else {
+    adf$num_guess = 0
+  }
+  adf
+}
+
+# select 4 choices for the responder
+select.guess.choices = function(adf, responderid, n=4) {
+  restore.point("select.guess.choices")
+  adf$row = seq_len(NROW(adf))
+
+  sol = filter(adf, is.sol, userid != responderid)
+  ord = order(-sol$num_guess + runif(NROW(sol),0,0.0001))
+
+  sol.row = sol$row[ord[1]]
+  ans = filter(adf, !is.sol,  userid != responderid)
+  ord = order(-ans$num_guess + runif(NROW(ans),0,0.0001))
+  ans.rows = ans$row[ord[1:(n-1)]]
+
+  rows = sample(c(sol.row,ans.rows),replace = FALSE)
+  adf[rows,]
+}
+
+
+new.pgu = function(pq,responderid, ans=NULL,num.ans = NROW(ans),...) {
+  pgu = as.environment(list(id=pq$id,responderid=responderid, ans=ans, num.ans=num.ans, ans.div.id = paste0("ans-div-id-",seq_len(NROW(ans)),"-",pq$id)))
 }
 
 set.pgu = function(pgu, app=getApp()) {
@@ -44,6 +84,7 @@ get.pgu = function(pq=NULL,id = pq$id, app=getApp()){
 set.pgu.ui = function(container.id,pq, pgu = NULL) {
   restore.point("set.pgu.ui")
 
+  ns = pq$ns
   ans = pgu$ans
   ui = pgu.ui(pq=pq,pgu = pgu)
 
@@ -57,6 +98,7 @@ set.pgu.ui = function(container.id,pq, pgu = NULL) {
         ranked = unique(c(ranked,1:pgu$num.ans))
       }
     }
+    pgu$ranked = ranked
     cat("\nRanking:",paste0(ranked, collapse=", "))
     if (length(ranked)==0) {
       str = pq$str$not_yet_ranked
@@ -70,6 +112,16 @@ set.pgu.ui = function(container.id,pq, pgu = NULL) {
     setUI(ns("ranking"), ranking.ui)
   })
   callJS("newClickRank",id=pq$id,div_ids=pgu$ans.div.id,max_ranked=3)
+
+  buttonHandler(ns("submitGuessBtn"), function(...) {
+    restore.point("submitGuessBtn")
+    db = get.pqdb()
+
+    idf = data_frame(id=pq$id,writerid = ans$userid[pgu$ranked],responderid=pgu$responderid, rank=1:NROW(ans), numchoices=NROW(ans),guesstime=Sys.time())
+
+    dbInsert(db,"pqguess",idf)
+
+  })
 
   setUI(container.id,ui)
   dsetUI(container.id,ui)

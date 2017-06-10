@@ -1,11 +1,12 @@
 example.peerquiz = function() {
   setwd("D:/libraries/peerquiz")
+  file = "gutschein.yaml"
   file = "p-value.yaml"
   app = eventsApp()
   pq = create.pq(yaml.file=file)
-  userid = paste0("Guest_", sample.int(100000,1))
+  app$userid = paste0("Guest_", sample.int(100000,1))
   save.pq.sample.sol(pq=pq)
-  ui = peerquiz.input.ui(pq)
+  ui = peerquiz.write.ui(pq)
 
   app$ui = fluidPage(
     withMathJax(ui)
@@ -17,8 +18,8 @@ example.peerquiz = function() {
 
 
 
-peerquiz.input.ui = function(pq) {
-  restore.point("peerquiz.input.ui")
+peerquiz.write.ui = function(pq) {
+  restore.point("peerquiz.write.ui")
 
   ns = pq$ns
 
@@ -164,11 +165,11 @@ save.pq.answer = function(pq, userid=get.pq.userid(), values, answer, answer.ui,
 
   pqa = list(id=pq$id, userid=userid, values=list(values), answer=answer, answer.ui=list(answer.ui), is.sol=is.sol, time=Sys.time())
 
-  users.dir = file.path(pq.dir,"users")
-  if (!dir.exists(users.dir))
-    dir.create(users.dir, recursive = TRUE)
+  answers.dir = file.path(pq.dir,"answers")
+  if (!dir.exists(answers.dir))
+    dir.create(answers.dir, recursive = TRUE)
 
-  saveRDS(pqa, file.path(users.dir, file))
+  saveRDS(pqa, file.path(answers.dir, file))
 }
 
 
